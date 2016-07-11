@@ -60,7 +60,7 @@ class GoodieBasket < Sinatra::Base
 	 		variant_id = line_item['variant_id']
 	 		variant = ShopifyAPI::Variant.find(variant_id)
 
-	 		variant.metafield.each do |metafield|
+	 		variant.metafields.each do |metafield|
 	 			if metafield.key == 'goodie'
 	 				items = metafield.split(',')
 	 				items.each do |item|
