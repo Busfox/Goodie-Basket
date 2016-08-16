@@ -9,7 +9,7 @@ class GoodieBasket < Sinatra::Base
 		Dotenv.load
 		@key = ENV['API_KEY']
 		@secret = ENV['API_SECRET']
-		@app_url = "29fc4405.ngrok.io"
+		@app_url = "70144427.ngrok.io"
 		@tokens = {}
 		super
 	end
@@ -27,20 +27,35 @@ class GoodieBasket < Sinatra::Base
 		hmac = params[:hmac]
 		code = params[:code]
 
-		#do some auth type stuff here
+		query = params.reject{|k,_| k == 'hmac'}
+		message = Rack::Utils.build_query(query)
+		digest = OpenSSL::HMAC.hexdigest(OpenSSL::Digest.new('sha256'), @secret, message)
+
+		puts "digest: #{digest}"
+
+		if not hmac == digest
+			return [401, "Authorization failed!"]
+		elsif hmac == digest
+			return ["Authorization successful!"]
+		end
+
+		response = HTTParty.post('https://#{shop}.myshopify.com/admin/oauth/access_token',
+			{ client_id: @key, client_secret: @secret, code: code })
+
+		puts response
 
 	end
 
 	helpers do
 		def verify_webhook(data, hmac)
 	    digest  = OpenSSL::Digest::Digest.new('sha256')
-	    calculated_hmac = Base64.encode64(OpenSSL::HMAC.digest(digest, @secret, data)).strip
-	    calculated_hmac == hmac
+	    digest = Base64.encode64(OpenSSL::HMAC.digest(OpenSSL::Digest::Digest.new('sha256'), @secret, data)).strip
+	    digest == hmac
 	  end
 	end
 
   
-  post 'goodiebasket/webhook/order_create' do
+  	post 'goodiebasket/webhook/order_create' do
 
 		request.body.rewind
 	 	data = request.body.read
