@@ -59,8 +59,8 @@ class GoodieBasket < Sinatra::Base
 		# activate session
 		ShopifyAPI::Base.activate_session(session)
 
-		product = ShopifyAPI::Product.find(5263432706)
-		puts product.title
+		#product = ShopifyAPI::Product.find(5263432706)
+		#puts product.title
 
 		ShopifyAPI::Webhook.create("topic": "orders\/create", "address": "https:\/\/drewbie.ngrok.io\/goodiebasket\/webhook", "format": "json")
 
@@ -71,14 +71,24 @@ class GoodieBasket < Sinatra::Base
 
 
 	get '/goodiebasket' do
+		@products = ShopifyAPI::Product.find(:all)
     erb :index
   end
 
   post '/goodiebasket' do
     @basket = params[:basket]
-    @gift = params[:gift]
+    @gifts = params[:gifts]
     puts @basket
 		puts @gift
+		parent_variant = ShopifyAPI::Variant.find(@basket)
+
+		parent_variant.add_metafield(ShopifyAPI::Metafield.new({
+		"namespace": "gifts",
+		"key": "gifts",
+		"value": "#{@gifts}",
+		"value_type": "string"
+			}))
+
 	end
 
 	helpers do
@@ -93,6 +103,9 @@ class GoodieBasket < Sinatra::Base
 		request.body.rewind
 		data = request.body.read
 		verified = verify_webhook(data, env["HTTP_X_SHOPIFY_HMAC_SHA256"])
+		shop = env["HTTP_X_SHOPIFY_SHOP_DOMAIN"]
+		token = @tokens[shop]
+		puts env
 
 		puts "Webhook verified: #{verified}"
 
@@ -101,6 +114,7 @@ class GoodieBasket < Sinatra::Base
 		end
 
 		# Otherwise, webhook is verified:
+		ShopifyAPI::Session.temp(shop, token) {
 
 		json_data = JSON.load data
 
@@ -120,13 +134,16 @@ class GoodieBasket < Sinatra::Base
 						goodie = ShopifyAPI::Variant.find(item)
 						goodie.inventory_quantity = goodie.inventory_quantity - 1
 						goodie.save
+					
 					end
 
 				end
+
 			end
-			puts variant_id
+			
 		end
 		return [200, "All good brah"]
+	}
 	end
 
 
